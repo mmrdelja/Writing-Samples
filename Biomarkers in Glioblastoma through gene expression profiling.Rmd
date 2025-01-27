@@ -1,0 +1,415 @@
+---
+title: "RBIF114 Final"
+author: "Author: Marko Mrdelja"
+date: "Last update: `r format(Sys.time(), '%d %B, %Y')`" 
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 4
+    fig_caption: yes
+    code_folding: hide
+    number_sections: true
+  pdf_document:
+    toc: true
+vignette: >
+    %\VignetteIndexEntry{FINAL}
+    %\usepackage[utf8]{inputenc}
+    %\VignetteEngine{knitr::rmarkdown}
+fontsize: 15pt
+# bibliography: bibtex.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style>
+pre code, pre, code {
+  white-space: pre !important;
+  overflow-x: auto !important;
+  word-break: keep-all !important;
+  word-wrap: initial !important;
+}
+body {
+.lightgreen table {
+  background-color:#eff8e5;
+}
+
+.yellow table {
+  background-color:#ffff99;
+}
+text-align: justify}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+For my project, I chose the paper Gene Expression Profiling of Glioblastoma to Recognize Potential Biomarker Candidates by Qiang Li et al [1]. Glioblastoma (GBM) is an aggressive, uncurable malignant tumor of the brain and spinal cord with poor prognosis even with treatment. There are significant challenges in diagnosis, prognosis and treatment, reflecting significant value of diagnostic and therapeutic target biomarkers. The recurrence of GBM tumors is a major limiting factor for existing therapeutic strategies, meaning that there is an unmet need to identify molecular drivers responsible for the progression of GBM [1].
+
+Using 3 different cohort studies, the authors identified differentially expressed genes (DEGs) with log2FC > 1 and p-value <0.05 [1]. In order to understand the potentially significant genes, Gene Ontology (GO) analysis was performed and inter-relational pathways involved in the pathology of GBM were examined [1]. Pathway analysis was performed using the REACTOME and KEGG databases, and through CytoScape, the authors predicted the most significant genes using the inter-relational analysis of the gene annotations and the pathway terms [1]. The STRING database of protein-protein interactions (PPI) was employed, and to predict hub genes, the significant PPI clusters for the up- and downregulated DEGs were determined using CytoScape's MCODE plug-in [1]. 
+
+The authors identified and validated hub genes in GBM through the analysis of their expression patterns in normal tissues and other related cancers [1]. The correlation between the DEG expression and survival in GBM was analyzed, and hub genes were classified based on the GBM subtypes, where significant mutations were predicted. Kaplan-Meier survival analysis was used to predict the correlation between DEGs and the survival rates of the patients, and this was used in conjunction with association of the hub genes to reveal biomarkers of GBM. A strength of this study is the meta-analysis and inclusion of multiple samples, increasing statistical power of the analysis. A weakness of this study is a lack of normalization between the different cohort studies. Tumor heterogeneity is always an obstacle in these types of studies. Since each study used microarrays, there is a level of consistency, but each used a different Affymetrix platform, and the authors didn't seem to account for variations in expression due to methodology, outside of routine standardization and log transformation. Considering the dramatic difference in tumor heterogeneity, especially in brain and CNS tumors, the study would benefit from a deeper meta-analysis.
+
+As much as I would like to fully recreate this analysis, there is a finite amount of analysis I am able to perform. The authors investigated 3 Glioblastoma datasets, but I chose 1: GSE90598. This was chosen from the GSE90604 project, which included a separate microRNA expression profile, but for analytic simplicity, I chose only the gene expression set. Although any of the 3 GEO accessions would have worked, this microarray expression profile contained a good number of samples/replicates for sufficient statistical power in biomarker investigation. Overall, I included a significant number of components from the Li paper. As to be expected, I did not have the same outputs and conclusions as the paper, since I did not include the other data sets. I did find my own potential biomarkers, which I will discuss below.
+
+To start, I downloaded the expression set via GEOquery. Unlike Li et al, I performed an exploratory data analysis, to gain insight into my data set. I performed a log2 transformation, and simplified the samples into Glioblastoma (glio) samples and Controls. In order to reduce noise and shrink down my pool of genes, I calculated variance between samples, and selected the top 300 genes with the highest sample variance. Using hierarchical clustering via Ward method, I clustered by genes and by samples to observe anything significant. I followed this up with principal component analysis (PCA), which demonstrated that a majority of variance is in the 1st principal component. Looking at the PC1:PC2 plot, there is a significant amount of overlap between Glioblastoma (red) and Controls (blue). I used silhouette analysis to find the optimal clustering efficiency, which indicated that the optimal number of clusters is 3.
+
+As in Li et al, I utilized the limma package to identify differentially expressed genes, where Benjamini–Hochberg false discovery rate statistics were applied with log2FC > 1 and p-value <0.05 thresholds [1]. For my statistics, I used Empirical Bayes Statistics for Differential Expression (eBayes). Based on these results, I found 1447 up-regulated DEGs and 976 down-regulated DEGs. The authors found 1,673 (785 upregulated and 888 downregulated) DEGs in this dataset. This is somewhat comparable, and it is important to note that these values included the microRNA dataset that I excluded. In order to be comprehensive, I included SAM analysis. Here I was able to identify genes with positive and negative correlations with the outcome (glioblastoma): 13410 positive vs 13762 negative.
+
+My next step was an annotation approach. Here I ran into some issues, because not all of the ProbeNames had corresponding gene symbols, and some ProbeNames had more than one genes symbol. As a result, I could not include all genes in my analysis. This is a rather significant shortcoming, as it prevents me from identifying all possible biomarkers. However, I do include 267 genes of my 300 high variance genes, so I have enough power to make reasonable interpretations and conclusions. Based on my 267 genes, I have 59 up-regulated DEGs and 132 down-regulated DEGs. 
+
+For annotations, I followed Li et al, so I included GO Molecular Function, Cellular Component, and Biological Process, as well as the KEGG and REACTOME pathway databases. I have 3 sections, one for all DEGs, one specified for upregulated, and one for downregulated DEGs. I included a few of the top terms/pathways, as well as an enrichment plot for each annotation and each DEG group. I couldn't make the same volcano plots as Li et al, but I made my own using the EnhancedVolcano package, which includes all DEGs. My enrichment analysis compares favorably to Li et al. Although there are several significant genes identified, the standout from this volcano plot is NEFL, for reasons which will be identified and explained below.
+
+The Enrichment plots depict some of the enriched terms of interest, almost all of which are associated with brain development and activity. A common enriched term throughout my analysis is synapse/synaptic transmission. This makes sense, considering the normal function of glial cells in neuronal maintenance and activity, and its associated alterations in glioblastoma. The upregulated DEGs are largely involved in signaling pathways and several types of cancer, including bladder, pancreatic and small-cell lung cancer. PI3K-Akt signaling has the highest number of related genes, and is especially implicated in cancer due to its association with dysregulated apoptosis. Some individual standout genes are EGFR and VEGFA, both of which have strong historical associations with glioblastoma and other types cancers. The other standout is different collagen-related genes, which makes sense considering the aggressive and malignant nature of glioblastoma.
+
+Downregulated DEGs are also strongly involved in different signaling pathways and drug addictions, but a standout in the enrichment plot is synpases: Glutamatergic, GABAergic and Dopaminergic. Glutamatergic are the most common type of synapse in the brain and are responsible for most of the brain's information processing [3]. The downregulated expression of these genes compared to normal brain tissue reflects a significantly decreased capability of the brain in facilitating hormone-related signaling and processing of information.
+
+```{r setup2, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE, class.source = "fold-show", cache=FALSE}
+library(GEOquery); library(limma); library(samr); library(enrichR); library(tidyverse); library(fpc); library(cluster); library(EnhancedVolcano)
+#Loading in expression set
+gset <- getGEO("GSE90598", GSEMatrix =TRUE, getGPL=FALSE)
+if (length(gset) > 1) idx <- grep("GPL17692", attr(gset, "names")) else idx <- 1
+gset <- gset[[idx]]
+
+#Set expression set to a variable
+ex <- exprs(gset)
+# log2 transform
+qx <- as.numeric(quantile(ex, c(0., 0.25, 0.5, 0.75, 0.99, 1.0), na.rm=T))
+LogC <- (qx[5] > 100) ||
+          (qx[6]-qx[1] > 50 && qx[2] > 0)
+if (LogC) { ex[which(ex <= 0)] <- NaN
+  ex <- log2(ex) }
+```
+
+```{r HW, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE, class.source = "fold-show", cache=FALSE}
+#Set column names to a more readable format
+colnames(ex) <- pData(gset)[,1]
+sampleinfo <- colnames(ex)
+sampleinfo$status = factor(ifelse(startsWith(sampleinfo,"Glioblastoma"),"glio","control"))
+sampleinfo = as.data.frame(sampleinfo)
+col.data <- sampleinfo
+
+#Classes to colors
+classes = sampleinfo$status
+cols=rainbow(length(unique(classes)))
+point.cols=cols[as.numeric(as.factor(classes))]
+
+#Calculate sample variance for each gene
+var.expr <- apply(ex,1,var)
+#300 genes with highest sample variance
+select=order(var.expr,decreasing=T)[1:300]
+highvar.expr <- ex[select,]
+#correlation distance
+corr.dist=function(x) { as.dist(1-cor(t(x))) }
+#How genes cluster
+hc.ward.g <- hclust(corr.dist(highvar.expr),method="ward.D2")
+plot(hc.ward.g)
+#How samples cluster
+hc.ward.p <- hclust(corr.dist(t(highvar.expr)),method="ward.D2")
+plot(hc.ward.p)      
+
+#Principal component analysis
+pc.expr <- prcomp(highvar.expr)
+plot(pc.expr)
+plot(pc.expr$x[,1:2],col=point.cols)
+legend("topright",inset = c(0,0),legend = unique(classes), fill = cols, cex = 0.7, xpd = TRUE)
+
+#Silhouette analysis for optimal number of clusters
+num.clust <- c(2:10)
+sil.widths <- vector()
+mean.sil.width <- numeric()
+for (i in num.clust) {
+kmeans.result <- kmeans(highvar.expr,i)
+sil.widths <- silhouette(kmeans.result$cluster, dist(highvar.expr))
+mean.sil.width[i] <- mean(sil.widths[,3])
+}
+plot(num.clust,na.omit(mean.sil.width),xlab="Number of clusters",ylab="Average Silhouette Width")
+
+clusters=cutree(hc.ward.g,k=3)
+clust.1 <- names(clusters[clusters == 1])
+length(clust.1)
+clust.2 <- names(clusters[clusters == 2])
+length(clust.2)
+clust.3 <- names(clusters[clusters == 3])
+length(clust.3)
+
+#Setting condition - if it is a glioblastoma sample =glio, if not=control
+conditions <- as.factor(sampleinfo$status)
+
+#Limma analysis of differential expression
+design <- model.matrix(~ conditions + 0, gset)
+#Consistent naming
+colnames(design) <- levels(conditions)
+rownames(design) <- colnames(ex)
+#Set fit
+fit <- lmFit(gset, design)
+#Contrast matrix
+cont.matrix <- makeContrasts(glio - control, levels=design)
+fit2 <- contrasts.fit(fit, cont.matrix)
+#Stats
+fit2 <- eBayes(fit2, 0.01)
+#Top table, adjusted with fdr. Arbitrarily high number
+result.tt <- topTable(fit2, adjust="fdr", sort.by="B", number=25000000)
+
+#Up and down-regulated genes
+select.de.up = ! is.na(result.tt$P.Value) & result.tt$P.Value <= 0.05 & result.tt$logFC >=1
+genes.de.up <- result.tt[select.de.up,]
+print(paste("The number of upregulated genes is", dim(genes.de.up)[1]))
+select.de.down = ! is.na(result.tt$P.Value) & result.tt$P.Value <= 0.05 & result.tt$logFC <=(-1)
+genes.de.down <- result.tt[select.de.down,]
+print(paste("The number of downregulated genes is", dim(genes.de.down)[1]))
+
+#SAM statistics
+samfit <- SAM(x=ex,y=conditions,resp.type="Two class unpaired",geneid = rownames(ex))
+plot(samfit)
+#Genes with positive correlation to outcome
+head(samfit[["siggenes.table"]][["genes.up"]])
+#Genes with negative correlation to outcome
+head(samfit[["siggenes.table"]][["genes.lo"]])
+
+#I couldn't find another way to annotate ProbeIDs
+#so I manually downloaded and read in the GPL provided by the authors in GEO
+temp.labeldat <- read.delim("~/Downloads/GPL17692.an.txt")
+temp.labeldat <- temp.labeldat[,1:2]
+#Add new column of probe name IDs
+result.tt$ProbeName <- as.numeric(row.names(result.tt))
+#Join label data and limma top table results
+temp.combin <- merge(temp.labeldat,result.tt,by="ProbeName")
+#Remove rows with empty spaces
+temp.combin.df <- temp.combin[!temp.combin$GeneSymbols=="", ]
+#Some rows have multiple values in GeneSymbols, so expand the column and duplicate values
+fin.combin.df <- temp.combin.df %>% separate_rows(GeneSymbols)
+
+#Our top 300 genes of interest, ProbeName
+sel.gene <- rownames(highvar.expr)
+#Isolate 300 highest variance genes of interest
+gene.enrich.dat <- fin.combin.df[which(fin.combin.df$ProbeName %in% sel.gene),]
+#I can only get 267 genes due to data missingness
+
+#Using the new, gene selected DE results, isolate upregulated and downregulated
+sel.de.up = ! is.na(gene.enrich.dat$P.Value) & gene.enrich.dat$P.Value <= 0.05 & gene.enrich.dat$logFC >=1
+sel.genes.de.up <- gene.enrich.dat[sel.de.up,]
+print(paste("The number of upregulated genes is", dim(sel.genes.de.up)[1]))
+sel.de.down = ! is.na(gene.enrich.dat$P.Value) & gene.enrich.dat$P.Value <= 0.05 & gene.enrich.dat$logFC <=(-1)
+sel.genes.de.down <- gene.enrich.dat[sel.de.down,]
+print(paste("The number of downregulated genes is", dim(sel.genes.de.down)[1]))
+
+#Set databases of interest
+dbs <- c("GO_Molecular_Function_2018", "GO_Cellular_Component_2018", "GO_Biological_Process_2018","KEGG_2016","Reactome_2016")
+#For all differentially expressed genes
+gene.enrich.list <- enrichr(gene.enrich.dat$GeneSymbols,dbs)
+#Top few GO terms for molecular functions
+head(gene.enrich.list[[1]])
+#Plotting enrichment analysis for molecular functions
+plotEnrich(gene.enrich.list[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+#Top few GO terms for cellular components
+head(gene.enrich.list[[2]])
+#Plotting enrichment analysis for cellular components
+plotEnrich(gene.enrich.list[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+#Top few GO terms for biological processes
+head(gene.enrich.list[[3]])
+#Plotting enrichment analysis for biological processes
+plotEnrich(gene.enrich.list[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+#Top few KEGG pathways 
+head(gene.enrich.list[[4]])
+#Plotting KEGG enrichment analysis 
+plotEnrich(gene.enrich.list[[4]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+#Top few REACTOME pathways 
+head(gene.enrich.list[[5]])
+#Plotting REACTOME enrichment analysis 
+plotEnrich(gene.enrich.list[[5]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+
+#Simple Volcano Plot
+EnhancedVolcano(gene.enrich.dat,
+                 lab = gene.enrich.dat$GeneSymbols,
+                 x = 'logFC',
+                pCutoff = 10e-5,
+                FCcutoff = 1.5,
+                 y = 'P.Value')
+
+#For upregulated differentially expressed genes
+up.gene.enrich.list <- enrichr(sel.genes.de.up$GeneSymbols,dbs)
+#Top few GO terms for molecular functions
+head(up.gene.enrich.list[[1]])
+#Plotting enrichment analysis for molecular functions
+plotEnrich(up.gene.enrich.list[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+#Top few GO terms for cellular components
+head(up.gene.enrich.list[[2]])
+#Plotting enrichment analysis for cellular components
+plotEnrich(up.gene.enrich.list[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+#Top few GO terms for biological processes
+head(up.gene.enrich.list[[3]])
+#Plotting enrichment analysis for biological processes
+plotEnrich(up.gene.enrich.list[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+#Top few KEGG pathways 
+head(up.gene.enrich.list[[4]])
+#Plotting KEGG enrichment analysis 
+plotEnrich(up.gene.enrich.list[[4]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+#Top few REACTOME pathways 
+head(up.gene.enrich.list[[5]])
+#Plotting REACTOME enrichment analysis 
+plotEnrich(up.gene.enrich.list[[5]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+
+#For downregulated differentially expressed genes
+down.gene.enrich.list <- enrichr(sel.genes.de.down$GeneSymbols,dbs)
+#Top few GO terms for molecular functions
+head(down.gene.enrich.list[[1]])
+#Plotting enrichment analysis for molecular functions
+plotEnrich(down.gene.enrich.list[[1]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+#Top few GO terms for cellular components
+head(down.gene.enrich.list[[2]])
+#Plotting enrichment analysis for cellular components
+plotEnrich(down.gene.enrich.list[[2]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+#Top few GO terms for biological processes
+head(down.gene.enrich.list[[3]])
+#Plotting enrichment analysis for biological processes
+plotEnrich(down.gene.enrich.list[[3]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+#Top few KEGG pathways 
+head(down.gene.enrich.list[[4]])
+#Plotting KEGG enrichment analysis 
+plotEnrich(down.gene.enrich.list[[4]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+#Top few REACTOME pathways 
+head(down.gene.enrich.list[[5]])
+#Plotting REACTOME enrichment analysis 
+plotEnrich(down.gene.enrich.list[[5]], showTerms = 20, numChar = 40, y = "Count", orderBy = "P.value")
+
+#Setting up network analysis
+IAC=cor(t(highvar.expr),use="p")
+hist(IAC,sub=paste("Mean=",format(mean(IAC[upper.tri(IAC)]),digits=3)))
+cluster1=hclust(as.dist(1-IAC))
+keepGenesExpr = rank(-rowMeans(ex))<=1000
+filt.expr<-ex[keepGenesExpr,]
+dataExpr <- filt.expr[c(1:1000),]
+dataExpr <- t(dataExpr)
+
+```
+
+From here, I start my network analysis. I utilized Weighted correlation network analysis (WGCNA), creating a dendogram and a network file for reading into CytoScape. 
+
+```{r HW2, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE, class.source = "fold-show", cache=FALSE}
+library(WGCNA)
+net = blockwiseModules(dataExpr, power = 7,
+                       TOMType = "signed", minModuleSize = 30,
+                       reassignThreshold =10, mergeCutHeight = 0.5,
+                       numericLabels = TRUE, pamRespectsDendro = FALSE,
+                       saveTOMs = TRUE,
+                       saveTOMFileBase="TOM", verbose=3, ds=3)
+
+mergedColors = labels2colors(net$colors)
+plotDendroAndColors(net$dendrograms[[1]], mergedColors[net$blockGenes[[1]]],
+"Module colors",
+dendroLabels = FALSE, hang = 0.03,
+addGuide = TRUE, guideHang = 0.05)
+
+genes=colnames(dataExpr)
+moduleColors=labels2colors(net$colors)
+mymodules=cbind(genes,moduleColors)
+
+load("TOM-block.1.RData")
+testing <- as.matrix(TOM)
+dimnames(testing) <- list(genes,genes)
+
+suppressMessages(exportNetworkToCytoscape(testing, edgeFile="edgedata.txt", nodeFile="nodedata.txt", weighted=TRUE, threshold = 0.1, nodeNames = genes, nodeAttr = moduleColors))
+```
+
+I set the threshold at different levels to investigate my network. I did not include the other networks, but the largest and most significant visualization is here:
+!["CytoScape WGCNA Network"](largestedgedata.txt.png)
+Not many of the genes were unregistered (grey) but I attribute this to the data set. Due to the nature of the analysis and selection of the genes, it is not surprising that all of the genes were assigned to a module. I exported network statistics, and imported them into R (below). We can observe the top few genes, sorted by degree. 3 of the top 5 genes are members of the neuroblastoma breaking point family (NBPF), which are associated with neurogenetic diseases due to  gene copy number variations and several types of cancer due to altered expression [4]. I expected to see more from the enrichment analysis reflected here, but this is a weighted co-expression network, which could have easily filtered out some of these important genes. 
+
+```{r HW3, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE, class.source = "fold-show", cache=FALSE}
+#Read in Cytoscape outputted data
+mydat <- read.table("edgedata.txt_1 default node.csv",sep=",",header=T)
+
+#Change name of relevant column to merge
+colnames(mydat)[18] <- "ProbeName"
+my.combin <- merge(mydat,temp.labeldat,by="ProbeName")
+combin.temp <- my.combin[!my.combin$GeneSymbols=="", ]
+#Some rows have multiple values in GeneSymbols, so expand the column and duplicate values
+combin.temp <- combin.temp %>% separate_rows(GeneSymbols)
+#Sort by genes with highest number of degrees
+combin.bydeg <- combin.temp[order(combin.temp$Degree,decreasing=TRUE),]
+#Remove duplicated probes
+combin.byprob <- combin.bydeg[!duplicated(combin.bydeg$ProbeName),]
+#Remove duplicated genes
+combin.fin <- combin.byprob[!duplicated(combin.byprob$GeneSymbols),]
+#See results
+head(combin.fin)
+
+```
+
+In Li et al, after enrichment analysis, the authors investigated Protein–Protein Interactions (PPI) and validated hub genes. Here is where I had to deviate significantly from the paper. Li et al investigated overlapping genes, which I could not, and I think this is a major contributor to the differences in my final results compared to theirs. I was able to successfully use the STRINGdb and investigate PPI in my data set. 14% of the gene were not able to be mapped, but I had enough genes to move forward. I used the top 100 statistically significant genes for analysis. 
+
+We can see the string-generated network below. I created a second network, using a color scheme where green reflects down-regulated genes and red reflects up-regulated genes, and the darker color indicates more interactions. A bulk of the downregulated genes cluster together and have significantly more interactions. The brightest green-colored hubs appears to be NEFL and NEFM. NEFL is the neurofilament light chain, and NEFM is the neurofilament medium chain [5]. Along with NEFH (heavy chain), neurofilaments comprise the axoskeleton and functionally maintain neuronal caliber [5]. NEFL is particularly interesting, as it has been identified as a genetic locus frequently affected by both heterozygous and homozygous deletions in several types of cancers, including prostate cancer, breast cancer and head and neck cancer (HNC), implicating NEFL as a potential tumor suppressor gene [6]. Wang et al identified NEFL as a novel target molecule of miR-381, resulting in glioblastoma cell sensitization to temozolomide (TMZ) treatment [6]. Unfortunately I couldn't map miR-381 so I didn't have it included in my analysis.
+
+The brightest red-colored hubs appears to be CHI3L1 and TNC. Chitinase-3 like-protein-1 (CHI3L1) is a member of the glycoside hydrolase family 18, with crucial roles in apoptosis and extracellular matrix regulation [7] In Zhao et al, CHI3L1 was up-regulated in all disease stages of glioma, closely related with tumor survival, growth, and invasion, through activation of NF-κB and Akt pathways. We observed PI3K-Akt enrichment in upregulated DEGs above. Tenascin C (TNC) is a matricellular, hexameric and multimodular glycoprotein that plays a role in neurogenesis and is present in the glioma microenvironment and neural stem cell niches [8]. Per Fu et al, TNC is known to promote malignant properties in glioma progression, such as neovascularization, proliferation, invasiveness, and immunomodulation. 
+
+There were 4 clusters generated by STRING, but this did not tell me more than I already found above. STRING also enables enrichment analysis, so I included the first few terms.
+
+```{r HW4, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE, class.source = "fold-show", cache=FALSE}
+library(STRINGdb)
+#Stringdb expects a dataframe
+fix.str.dat <- as.data.frame(gene.enrich.dat)
+#Setup. Threshold of 0 to capture all interactions
+string_db = STRINGdb$new(version="11.5",species=9606, score_threshold=0,input_directory="")
+DE.mapped = string_db$map(fix.str.dat,"GeneSymbols",removeUnmappedRows = TRUE)
+#14% of genes couldn't get mapped
+#100 genes with the most significant DE (out of genes we could map):
+top.genes = DE.mapped$STRING_id[order(DE.mapped$P.Value)[1:100]]
+#generate the PPI network with all the interactions among the specified genes:
+string_db$plot_network(top.genes)
+
+# filter by p-value and add a color column
+# green down-regulated genes and red for up-regulated genes
+topgenes_pval05 <- string_db$add_diff_exp_color( subset(DE.mapped, P.Value<0.05),logFcColStr="logFC" )
+# post payload information to the STRING server
+payload_id <- string_db$post_payload( topgenes_pval05$STRING_id,colors=topgenes_pval05$color )
+# display a STRING network png with the "halo"
+string_db$plot_network( top.genes, payload_id=payload_id )
+
+#Generate enrichment data
+enrichdat <- string_db$get_enrichment(top.genes)
+head(enrichdat)
+```
+
+In Li et al, the MCODE plug-in was applied with the PPI network analysis to identify hub genes. I tried to get MCODE to work but I couldn't quite get it right. I could not directly determine any hubs or significant genes, so I focused on STRINGdb. Since "PPI networks analysis has helped in the identification of the hub genes playing a critical role in the GBM", I thought I could utilize the STRINGdb PPI information [1]. I noticed some of the Li et al identified hub genes through my enrichment analyses, but I feel confident in the potential biomarkers I am able to identify.
+
+Through a GSEA, GOCC:0045202 Synapse is the most statistically significant term. It includes 28 genes:
+
+LRRC7,STX1B,SLC17A7,SLC8A2,SYT4,UNC13C,RIMS2,SHANK1,GABRG1,SYN1,CACNG2,CABP1,SLC6A17,PCLO,TPPP,GRIN1,ABL1,FRMPD4,SV2B,GRIN2A,CAMK2A,SLC4A10,RIMS1,KCNC2,CDH8,SYN2,NEFL,PACSIN1.
+
+These genes were all identified at different stages of my analysis above. These genes are related to alterations in signaling pathways and synaptic functions in the brain due to glioblastoma. There is a significant upregulation in genes associated with advancing tumor progression, tumor migration, and malignancy, and a significant downregulation of genes associated with signaling pathways and synaptic functions. NEFL was present in all 6 of the most significant categories. TNC can be found in GOCC:0030054 cell junction, the second-most significant category. CHI3L1 was not in the top 6, but that doesn't necessarily mean it is not significant.
+
+The genes I identified (NEFL, CHI3L1, and TNC) have significant potential as biomarkers, serving as possible therapeutic targets for glioblastoma. Obviously, we would need to validate our genes/biomarkers. In Li et al, hub genes were validated by comparing their expression patterns against the pan-cancer atlas of the whole-genome consortium/TCGA [1]. Unfortunately, data for glioblastoma is controlled, and I can't access this data to perform my own full validation. I did look into cBioPortal, which was used to infer mutational analysis of the hub genes from the six TCGA datasets [1,9]. For Glioblastoma, there were very few samples profiled, but there were copy number variations present. I looked at the Pan-Cancer atlas as well, trying to somewhat recreate Li et al. Both of these images are below. Glioma and Glioblastoma are both on the list, but are low in alteration frequency. I interpret this as my 3 identified biomarkers can be found in other types of cancers, and are more likely to be altered/mutated in these cancers than in Glioblastoma. This does raise questions about the sensitivity and specificity of the biomarkers, but it does not change the fact that they are implicated in the disease. The most promising would have to be NEFL, considering it is targeted by a specific microRNA, which bodes well for targeted therapeutics. These biomarkers would certainly need a deeper validation before finalizing them as biomarkers.
+
+!["Glioblastoma BioPortal"](Desktop/bioportal1.png)
+!["PanCancer BioPortal"](Desktop/bioportal2.png)
+
+Due to a lack of data, I could not perform mutational analysis or survival analysis. Naturally, I also could not investigate prognostic potentials across GBM subtypes or perform a full pan-cancer analysis. With more data and more time, I could find other means of performing this analysis, but it does not change my end result.
+
+To conclude, I have identified 3 genes with aberrant expression in GBM compared to normal tissue - NEFL, CHI3L1, and TNC. They appeared as statistically significant genes throughout my analysis. While I would not necessarily consider these novel, there is ongoing research into each of these for application in improving glioblastoma treatment and prognosis. NEFL in particular has been gaining popularity as a blood and CSF biomarker, particularly as a non-specific early-stage biomarker for neurodegenerative diseases [10,11]. Per Gaetani et al, "evidence that both CSF and blood NfL may serve as diagnostic, prognostic and monitoring biomarkers in neurological diseases is progressively increasing, and NfL is one of the most promising biomarkers to be used in clinical and research setting" [11].
+
+These genes represent pathways that are strongly implicated in glioblastoma, indicating a strong potential for therapeutic intervention. Targeted treatment would require a specific purpose, as other pathways would be impacted by the alteration of expression in disease cases. Thus, a validation and further investigation of these genes is essential. Overall, there is strong evidence supporting these genes as biomarkers (via studies depicted in the report above). A similar process as Li et al, or equivalent proteomic/transcriptomic-based glioma biomarker investigation, would suffice in validating these biomarkers. One important point that was not addressed in my analysis is subtypes of GBM. This would require a more true recreation of Li et al, by expanding the sample pool to specify glioma subtypes. For the purposes of this assignment, I am confident that I identified genuine and valid biomarkers for glioblastoma.
+
+References:
+
+1. Li, Qiang, et al. "Gene expression profiling of glioblastoma to recognize potential biomarker candidates." Frontiers in genetics 13 (2022): 832742.
+
+2. RBIF114 Course Materials. Accessed 6/10/2024.
+
+3. Di Maio V. The glutamatergic synapse: a complex machinery for information processing. Cogn Neurodyn. 2021 Oct;15(5):757-781. doi: 10.1007/s11571-021-09679-w. Epub 2021 May 7. PMID: 34603541; PMCID: PMC8448802.
+
+4. https://www.ncbi.nlm.nih.gov/gene/100288142. Accessed 6/10/2024.
+
+5. https://www.ncbi.nlm.nih.gov/gene/4747. Accessed 6/10/2024.
+
+6. Wang Z. Targeting miR-381-NEFL axis sensitizes glioblastoma cells to temozolomide by regulating stemness factors and multidrug resistance factors. Oncotarget. 2015 Feb 20;6(5):3147-64. doi: 10.18632/oncotarget.3061. PMID: 25605243; PMCID: PMC4413644.
+
+7. Zhao T, Chitinase-3 like-protein-1 promotes glioma progression via the NF-κB signaling pathway and tumor microenvironment reprogramming. Theranostics. 2022 Oct 3;12(16):6989-7008. doi: 10.7150/thno.75069. PMID: 36276655; PMCID: PMC9576612.
+
+8. Fu Z. Matricellular protein tenascin C: Implications in glioma progression, gliomagenesis, and treatment. Front Oncol. 2022 Aug 12;12:971462. doi: 10.3389/fonc.2022.971462. PMID: 36033448; PMCID: PMC9413079.
+
+9. https://www.cbioportal.org/. Accessed 6/10/2024.
+
+10. Coppens S, Lehmann S, Hopley C, Hirtz C. Neurofilament-Light, a Promising Biomarker: Analytical, Metrological and Clinical Challenges. Int J Mol Sci. 2023 Jul 19;24(14):11624. doi: 10.3390/ijms241411624. PMID: 37511382; PMCID: PMC10380627.
+
+11. Gaetani, Lorenzo, et al. "Neurofilament light chain as a biomarker in neurological disorders." Journal of Neurology, Neurosurgery & Psychiatry 90.8 (2019): 870-881.
